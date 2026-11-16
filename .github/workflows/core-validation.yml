@@ -1,0 +1,29 @@
+name: VenVia Core | PHP syntax and diagnostic validation
+run-name: "Core PHP - ${{ github.event.head_commit.message || github.ref_name }}"
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax validation
+        run: |
+          php -v
+          find . -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
+      - name: Diagnostic fails closed without database configuration
+        shell: bash
+        run: |
+          set +e
+          php tools/runtime-health.php > report.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          python3 -c 'import json; r=json.load(open("report.json")); assert r["ok"] is False and r["database_ok"] is False'
+      - name: Summary
+        run: echo 'PHP syntax and negative diagnostic test only; Core 0.3 baseline and integration tests remain pending.' >> "$GITHUB_STEP_SUMMARY"
